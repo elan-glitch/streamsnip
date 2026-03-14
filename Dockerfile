@@ -4,8 +4,6 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
-COPY requirements_free.txt .
-
 RUN pip install --no-cache-dir flask flask-cors yt-dlp librosa numpy scipy openai-whisper opencv-python-headless
 
 COPY . .
