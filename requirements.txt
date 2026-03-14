@@ -1,0 +1,9 @@
+flask
+flask-cors
+yt-dlp
+openai-whisper
+torch
+numpy
+scipy
+librosa
+opencv-python-headless

@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StreamSnip — Free Clip Tool</title>
+<meta name="description" content="Clip, trim and transcribe any online video for free using yt-dlp and Whisper AI." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+/* ─── Reset & Tokens ──────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0a0b0f;
+  --surface:   #12141a;
+  --glass:     rgba(255,255,255,.055);
+  --glass-b:   rgba(255,255,255,.10);
+  --border:    rgba(255,255,255,.08);
+  --accent:    #7c5cfc;
+  --accent2:   #e040fb;
+  --accent3:   #00e5ff;
+  --text:      #f0f0f5;
+  --muted:     #8b8ca0;
+  --danger:    #ff4f6d;
+  --success:   #00d78a;
+  --warn:      #ffb547;
+  --r:         14px;
+  --r-sm:      8px;
+  --shadow:    0 24px 64px rgba(0,0,0,.5);
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ─── Background Glows ────────────────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: -1;
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 10%, rgba(124,92,252,.18) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 80% 80%, rgba(0,229,255,.10) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 40% at 60% 40%, rgba(224,64,251,.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ─── Typography ──────────────────────────────────────────────────────── */
+h1,h2,h3,h4 { font-weight: 700; line-height: 1.2; }
+p { line-height: 1.6; }
+
+/* ─── Layout ──────────────────────────────────────────────────────────── */
+.container { max-width: 860px; margin: 0 auto; padding: 0 20px; }
+
+/* ─── Header ──────────────────────────────────────────────────────────── */
+header {
+  padding: 28px 0 20px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+.logo {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 1.35rem; font-weight: 800; letter-spacing: -.5px;
+}
+.logo-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: grid; place-items: center; font-size: 1.1rem;
+  box-shadow: 0 0 16px rgba(124,92,252,.5);
+}
+.logo span { color: var(--accent); }
+.badge {
+  font-size: .7rem; font-weight: 600; letter-spacing: .05em;
+  padding: 3px 9px; border-radius: 100px;
+  background: rgba(0,215,138,.15); color: var(--success);
+  border: 1px solid rgba(0,215,138,.25);
+  text-transform: uppercase;
+}
+.status-bar {
+  display: flex; align-items: center; gap: 6px;
+  font-size: .8rem; color: var(--muted);
+}
+.dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--muted); transition: background .3s;
+}
+.dot.online { background: var(--success); box-shadow: 0 0 8px var(--success); }
+
+/* ─── Hero ────────────────────────────────────────────────────────────── */
+.hero { padding: 52px 0 0; text-align: center; }
+.hero h1 { font-size: clamp(2rem, 5vw, 3.2rem); margin-bottom: 14px; }
+.gradient-text {
+  background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent3));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hero p { color: var(--muted); font-size: 1.05rem; max-width: 520px; margin: 0 auto 36px; }
+
+/* ─── Card ────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--glass);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 28px 32px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+  transition: border-color .25s;
+}
+.card:hover { border-color: rgba(255,255,255,.14); }
+.card-title {
+  font-size: .75rem; font-weight: 600; letter-spacing: .1em;
+  color: var(--muted); text-transform: uppercase;
+  margin-bottom: 18px; display: flex; align-items: center; gap: 8px;
+}
+.card-title::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+
+/* ─── Form Elements ───────────────────────────────────────────────────── */
+.field { margin-bottom: 16px; }
+label { display: block; font-size: .82rem; font-weight: 500; color: var(--muted); margin-bottom: 6px; }
+input[type=text], input[type=number], select, textarea {
+  width: 100%;
+  background: rgba(255,255,255,.05);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-family: inherit;
+  font-size: .92rem;
+  padding: 10px 14px;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(124,92,252,.18);
+}
+input::placeholder, textarea::placeholder { color: var(--muted); }
+select option { background: #1a1b23; }
+
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 520px) { .row { grid-template-columns: 1fr; } }
+
+/* ─── Checkbox toggle ─────────────────────────────────────────────────── */
+.toggle-row {
+  display: flex; align-items: center; gap: 12px;
+  cursor: pointer; user-select: none;
+}
+.toggle-wrap { position: relative; }
+.toggle-wrap input { position: absolute; opacity: 0; width: 0; height: 0; }
+.toggle-track {
+  display: block; width: 42px; height: 24px; border-radius: 100px;
+  background: rgba(255,255,255,.1); border: 1px solid var(--border);
+  position: relative; transition: background .25s;
+}
+.toggle-wrap input:checked ~ .toggle-track { background: var(--accent); border-color: var(--accent); }
+.toggle-track::after {
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; transition: transform .25s;
+}
+.toggle-wrap input:checked ~ .toggle-track::after { transform: translateX(18px); }
+.toggle-label { font-size: .88rem; color: var(--muted); }
+.toggle-label strong { color: var(--text); display: block; font-size: .92rem; }
+
+/* ─── Buttons ─────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: inherit; font-size: .92rem; font-weight: 600;
+  padding: 11px 22px; border-radius: var(--r-sm);
+  border: none; cursor: pointer; transition: all .2s;
+  text-decoration: none;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(124,92,252,.38);
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(124,92,252,.5); }
+.btn-primary:active { transform: translateY(0); }
+.btn-primary:disabled {
+  opacity: .5; cursor: not-allowed;
+  transform: none; box-shadow: none;
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { background: var(--glass); color: var(--text); }
+.btn-danger {
+  background: rgba(255,79,109,.15); color: var(--danger);
+  border: 1px solid rgba(255,79,109,.25);
+}
+.btn-danger:hover { background: rgba(255,79,109,.25); }
+.btn-sm { padding: 7px 14px; font-size: .8rem; }
+
+.btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* ─── Progress ────────────────────────────────────────────────────────── */
+.progress-wrap {
+  margin-top: 20px; display: none;
+  animation: fadeIn .3s ease;
+}
+.progress-wrap.visible { display: block; }
+
+.progress-header {
+  display: flex; justify-content: space-between;
+  font-size: .82rem; margin-bottom: 8px;
+}
+.progress-label { color: var(--muted); }
+.progress-pct { color: var(--accent); font-weight: 600; }
+
+.progress-track {
+  height: 6px; border-radius: 100px;
+  background: rgba(255,255,255,.08); overflow: hidden;
+}
+.progress-bar {
+  height: 100%; border-radius: 100px; width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  transition: width .4s ease;
+  box-shadow: 0 0 10px var(--accent);
+}
+
+.status-msg {
+  margin-top: 10px; font-size: .82rem; color: var(--muted);
+  display: flex; align-items: center; gap: 6px;
+}
+.spinner {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid rgba(124,92,252,.3);
+  border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+
+/* ─── Video Result ────────────────────────────────────────────────────── */
+.result-card { display: none; }
+.result-card.visible { display: block; animation: slideUp .4s ease; }
+
+video {
+  width: 100%; border-radius: var(--r-sm);
+  background: #000; margin-bottom: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.5);
+}
+
+.result-meta {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  margin-bottom: 16px;
+}
+.meta-chip {
+  font-size: .78rem; font-weight: 500;
+  padding: 4px 10px; border-radius: 100px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.meta-chip span { color: var(--text); }
+
+/* ─── Transcript ──────────────────────────────────────────────────────── */
+.transcript-box {
+  background: rgba(0,0,0,.3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 16px;
+  font-size: .85rem; line-height: 1.7;
+  color: var(--muted); max-height: 200px; overflow-y: auto;
+}
+.transcript-box p { margin-bottom: 4px; }
+.seg-time { color: var(--accent); font-size: .75rem; font-weight: 600; }
+
+/* ─── Clips Gallery ───────────────────────────────────────────────────── */
+.clips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+.clip-item {
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  transition: border-color .25s, transform .25s;
+}
+.clip-item:hover { border-color: rgba(255,255,255,.18); transform: translateY(-3px); }
+.clip-thumb {
+  width: 100%; aspect-ratio: 16/9;
+  object-fit: cover; display: block;
+  background: rgba(255,255,255,.05);
+}
+.clip-thumb-placeholder {
+  width: 100%; aspect-ratio: 16/9;
+  background: linear-gradient(135deg,rgba(124,92,252,.2),rgba(224,64,251,.1));
+  display: grid; place-items: center; font-size: 2rem;
+}
+.clip-info { padding: 12px 14px; }
+.clip-info time { font-size: .75rem; color: var(--muted); }
+.clip-actions { padding: 0 14px 14px; display: flex; gap: 8px; }
+
+/* ─── Alerts ──────────────────────────────────────────────────────────── */
+.alert {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 12px 16px; border-radius: var(--r-sm);
+  font-size: .85rem; margin-bottom: 16px;
+}
+.alert-success { background: rgba(0,215,138,.1); border: 1px solid rgba(0,215,138,.25); color: var(--success); }
+.alert-warn    { background: rgba(255,181,71,.1);  border: 1px solid rgba(255,181,71,.25);  color: var(--warn); }
+.alert-danger  { background: rgba(255,79,109,.1);  border: 1px solid rgba(255,79,109,.25);  color: var(--danger); }
+
+/* ─── Tabs ────────────────────────────────────────────────────────────── */
+.tabs { display: flex; gap: 4px; margin-bottom: 24px; }
+.tab {
+  padding: 8px 18px; border-radius: 100px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted); font-family: inherit; font-size: .88rem; font-weight: 500;
+  cursor: pointer; transition: all .2s;
+}
+.tab:hover { color: var(--text); background: var(--glass); }
+.tab.active {
+  background: var(--glass-b);
+  border-color: var(--border);
+  color: var(--text);
+}
+.tab-panel { display: none; }
+.tab-panel.active { display: block; animation: fadeIn .25s ease; }
+
+/* ─── Utils ───────────────────────────────────────────────────────────── */
+.hidden { display: none !important; }
+.text-right { text-align: right; }
+.mt-2 { margin-top: 8px; }
+.mt-4 { margin-top: 16px; }
+.empty-state {
+  text-align: center; padding: 48px 24px; color: var(--muted);
+}
+.empty-state .icon { font-size: 3rem; margin-bottom: 12px; opacity: .4; }
+.empty-state p { font-size: .9rem; }
+
+/* ─── Footer ──────────────────────────────────────────────────────────── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 24px 0; margin-top: 48px;
+  text-align: center; font-size: .8rem; color: var(--muted);
+}
+footer a { color: var(--accent); text-decoration: none; }
+
+/* ─── Animations ──────────────────────────────────────────────────────── */
+@keyframes fadeIn   { from { opacity: 0 } to { opacity: 1 } }
+@keyframes slideUp  { from { opacity: 0; transform: translateY(16px) } to { opacity: 1; transform: translateY(0) } }
+@keyframes spin     { to { transform: rotate(360deg) } }
+@keyframes pulse    { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+/* ─── Scrollbar ───────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 100px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">✂️</div>
+      Stream<span>Snip</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <span class="badge">Free</span>
+      <div class="status-bar">
+        <div class="dot" id="statusDot"></div>
+        <span id="statusText">Connecting…</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <h1>Clip any stream.<br><span class="gradient-text">Instantly. Free.</span></h1>
+    <p>Paste a YouTube, Twitch, or any supported URL and snip the exact moments you want — with optional AI transcription.</p>
+  </section>
+
+  <!-- Tabs -->
+  <div class="tabs" style="margin-top:36px">
+    <button class="tab active" data-tab="clip">✂️ Create Clip</button>
+    <button class="tab" data-tab="library">📁 Library</button>
+  </div>
+
+  <!-- ── Tab: Create Clip ──────────────────────────────────────────── -->
+  <div class="tab-panel active" id="tab-clip">
+
+    <!-- Step 1: URL -->
+    <div class="card">
+      <div class="card-title">1 · Source video</div>
+      <div class="field">
+        <label for="urlInput">Video URL</label>
+        <input type="text" id="urlInput"
+               placeholder="https://www.youtube.com/watch?v=…"
+               autocomplete="off" spellcheck="false" />
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-ghost" id="fetchInfoBtn" onclick="fetchInfo()">
+          🔍 Preview
+        </button>
+      </div>
+
+      <!-- Info preview -->
+      <div id="infoBox" class="hidden" style="margin-top:18px;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+        <img id="infoThumb" src="" alt="" style="width:160px;border-radius:8px;object-fit:cover;flex-shrink:0" />
+        <div style="flex:1;min-width:160px">
+          <div style="font-weight:600;margin-bottom:4px" id="infoTitle"></div>
+          <div style="font-size:.82rem;color:var(--muted)" id="infoDuration"></div>
+          <div style="font-size:.82rem;color:var(--muted)" id="infoUploader"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Trim -->
+    <div class="card">
+      <div class="card-title">2 · Trim range</div>
+      <div class="row">
+        <div class="field">
+          <label for="startInput">Start time</label>
+          <input type="text" id="startInput" placeholder="0:30 or 30" value="0" />
+        </div>
+        <div class="field">
+          <label for="endInput">End time</label>
+          <input type="text" id="endInput" placeholder="1:00 or 60" value="60" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="formatSelect">Quality / Format</label>
+        <select id="formatSelect">
+          <option value="">Best available (auto)</option>
+          <option value="bestvideo[height<=1080]+bestaudio/best[height<=1080]">1080p</option>
+          <option value="bestvideo[height<=720]+bestaudio/best[height<=720]">720p</option>
+          <option value="bestvideo[height<=480]+bestaudio/best[height<=480]">480p</option>
+          <option value="bestaudio/best">Audio only (best)</option>
+        </select>
+      </div>
+
+      <label class="toggle-row" style="margin-bottom:0">
+        <div class="toggle-wrap">
+          <input type="checkbox" id="transcribeToggle" />
+          <span class="toggle-track"></span>
+        </div>
+        <div class="toggle-label">
+          <strong>AI Transcription (Whisper)</strong>
+          Auto-generate subtitles / captions for your clip
+        </div>
+      </label>
+    </div>
+
+    <!-- Create -->
+    <div class="card" style="padding:20px 32px">
+      <div id="errorAlert" class="alert alert-danger hidden"></div>
+      <div class="btn-group">
+        <button class="btn btn-primary" id="clipBtn" onclick="createClip()">
+          ✂️ Create Clip
+        </button>
+        <button class="btn btn-ghost" onclick="reset()">Reset</button>
+      </div>
+
+      <!-- Progress -->
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-header">
+          <span class="progress-label" id="progressLabel">Starting…</span>
+          <span class="progress-pct" id="progressPct">0%</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div class="status-msg">
+          <div class="spinner"></div>
+          <span id="progressMsg">Please wait</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div class="card result-card" id="resultCard">
+      <div class="card-title">✅ Clip ready</div>
+      <video id="resultVideo" controls></video>
+      <div class="result-meta" id="resultMeta"></div>
+      <div class="btn-group" id="resultActions"></div>
+      <div id="transcriptArea" class="hidden" style="margin-top:18px">
+        <div style="font-size:.82rem;font-weight:600;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em">Transcript</div>
+        <div class="transcript-box" id="transcriptBox"></div>
+      </div>
+    </div>
+
+  </div><!-- /tab-clip -->
+
+  <!-- ── Tab: Library ──────────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-library">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+        <div class="card-title" style="margin-bottom:0">Your Clips</div>
+        <button class="btn btn-ghost btn-sm" onclick="loadLibrary()">↻ Refresh</button>
+      </div>
+      <div id="libraryGrid" class="clips-grid">
+        <div class="empty-state" style="grid-column:1/-1">
+          <div class="icon">📭</div>
+          <p>No clips yet. Create your first clip!</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<footer>
+  <div class="container">
+    StreamSnip — 100% local, 100% free &nbsp;·&nbsp;
+    Powered by <a href="https://github.com/yt-dlp/yt-dlp" target="_blank">yt-dlp</a>,
+    <a href="https://github.com/openai/whisper" target="_blank">Whisper</a> &amp;
+    <a href="https://ffmpeg.org" target="_blank">FFmpeg</a>
+  </div>
+</footer>
+
+<!-- ─────────────────────── Script ─────────────────────────────── -->
+<script>
+const API = 'http://localhost:5000';
+let pollTimer = null;
+let currentJobId = null;
+
+// ── Tabs ─────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    if (tab.dataset.tab === 'library') loadLibrary();
+  });
+});
+
+// ── Health check ──────────────────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const r = await fetch(`${API}/api/health`, { signal: AbortSignal.timeout(3000) });
+    const d = await r.json();
+    const dot  = document.getElementById('statusDot');
+    const text = document.getElementById('statusText');
+    if (d.status === 'ok') {
+      dot.className = 'dot online';
+      const parts = [];
+      if (d.yt_dlp)   parts.push('yt-dlp');
+      if (d.whisper)  parts.push('Whisper');
+      if (d.ffmpeg)   parts.push('ffmpeg');
+      text.textContent = `Backend online · ${parts.join(', ')}`;
+    } else {
+      dot.className = 'dot';
+      text.textContent = 'Backend error';
+    }
+  } catch {
+    document.getElementById('statusDot').className = 'dot';
+    document.getElementById('statusText').textContent = 'Backend offline';
+  }
+}
+checkHealth();
+setInterval(checkHealth, 30000);
+
+// ── Fetch info ────────────────────────────────────────────────────────────
+async function fetchInfo() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) return setError('Please enter a URL first.');
+  clearError();
+  const btn = document.getElementById('fetchInfoBtn');
+  btn.textContent = '⏳ Loading…'; btn.disabled = true;
+  try {
+    const r = await fetch(`${API}/api/info`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ url }),
+    });
+    const d = await r.json();
+    if (!r.ok) { setError(d.error || 'Failed to fetch info'); return; }
+
+    document.getElementById('infoThumb').src   = d.thumbnail || '';
+    document.getElementById('infoTitle').textContent    = d.title || '';
+    document.getElementById('infoDuration').textContent = d.duration ? `⏱ ${formatTime(d.duration)}` : '';
+    document.getElementById('infoUploader').textContent = d.uploader ? `👤 ${d.uploader}` : '';
+    document.getElementById('infoBox').classList.remove('hidden');
+    document.getElementById('infoBox').style.display = 'flex';
+  } catch(e) {
+    setError('Cannot reach backend. Is python backend_free.py running?');
+  } finally {
+    btn.textContent = '🔍 Preview'; btn.disabled = false;
+  }
+}
+
+// ── Create clip ───────────────────────────────────────────────────────────
+async function createClip() {
+  const url   = document.getElementById('urlInput').value.trim();
+  const start = document.getElementById('startInput').value.trim();
+  const end_  = document.getElementById('endInput').value.trim();
+  if (!url)   return setError('Please enter a video URL.');
+  if (!start || !end_) return setError('Please fill in start and end times.');
+  clearError();
+
+  const btn = document.getElementById('clipBtn');
+  btn.disabled = true; btn.textContent = '⏳ Creating…';
+  document.getElementById('resultCard').classList.remove('visible');
+  showProgress(true);
+  setProgress(0, 'Submitting job…', 'Contacting backend…');
+
+  try {
+    const r = await fetch(`${API}/api/clip`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        url, start, end: end_,
+        format:     document.getElementById('formatSelect').value,
+        transcribe: document.getElementById('transcribeToggle').checked,
+      }),
+    });
+    const d = await r.json();
+    if (!r.ok) { setError(d.error || 'Server error'); resetBtn(); return; }
+    currentJobId = d.job_id;
+    pollJob(d.job_id);
+  } catch(e) {
+    setError('Cannot reach backend. Is python backend_free.py running?');
+    resetBtn();
+  }
+}
+
+function pollJob(jobId) {
+  clearTimeout(pollTimer);
+  pollTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(`${API}/api/job/${jobId}`);
+      const d = await r.json();
+      setProgress(d.progress || 0, d.status, d.message || '');
+
+      if (d.status === 'done') {
+        showResult(d.result);
+        resetBtn();
+      } else if (d.status === 'error') {
+        setError(d.error || 'Unknown error');
+        showProgress(false);
+        resetBtn();
+      } else {
+        pollJob(jobId);
+      }
+    } catch {
+      setError('Lost connection to backend.');
+      resetBtn();
+    }
+  }, 1200);
+}
+
+function showResult(res) {
+  const card = document.getElementById('resultCard');
+  card.classList.add('visible');
+
+  const video = document.getElementById('resultVideo');
+  video.src = API + res.clip_url;
+  video.load();
+
+  // Meta chips
+  const meta = document.getElementById('resultMeta');
+  meta.innerHTML = `
+    <span class="meta-chip">⏱ Duration: <span>${formatTime(res.duration)}</span></span>
+    <span class="meta-chip">▶ Start: <span>${formatTime(res.start)}</span></span>
+    <span class="meta-chip">⏹ End: <span>${formatTime(res.end)}</span></span>
+  `;
+
+  // Actions
+  const actions = document.getElementById('resultActions');
+  actions.innerHTML = '';
+  const dlBtn = document.createElement('a');
+  dlBtn.href = API + res.clip_url; dlBtn.download = 'streamsnip.mp4';
+  dlBtn.className = 'btn btn-primary';
+  dlBtn.innerHTML = '⬇️ Download Clip';
+  actions.appendChild(dlBtn);
+
+  // Transcript
+  const ta = document.getElementById('transcriptArea');
+  const tb = document.getElementById('transcriptBox');
+  if (res.transcript) {
+    ta.classList.remove('hidden');
+    if (res.segments && res.segments.length) {
+      tb.innerHTML = res.segments.map(s =>
+        `<p><span class="seg-time">[${formatTime(s.start)} → ${formatTime(s.end)}]</span> ${escHtml(s.text)}</p>`
+      ).join('');
+    } else {
+      tb.innerHTML = `<p>${escHtml(res.transcript)}</p>`;
+    }
+  } else {
+    ta.classList.add('hidden');
+  }
+
+  showProgress(false);
+}
+
+// ── Library ───────────────────────────────────────────────────────────────
+async function loadLibrary() {
+  const grid = document.getElementById('libraryGrid');
+  grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon" style="animation:pulse 1s infinite">⏳</div><p>Loading…</p></div>';
+  try {
+    const r = await fetch(`${API}/api/clips`);
+    const clips = await r.json();
+    if (!clips.length) {
+      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon">📭</div><p>No clips yet. Create your first clip!</p></div>';
+      return;
+    }
+    grid.innerHTML = '';
+    clips.forEach(c => {
+      const item = document.createElement('div');
+      item.className = 'clip-item';
+      const thumbHtml = c.thumb_url
+        ? `<img class="clip-thumb" src="${API}${c.thumb_url}" alt="thumbnail" loading="lazy" />`
+        : `<div class="clip-thumb-placeholder">🎬</div>`;
+      item.innerHTML = `
+        ${thumbHtml}
+        <div class="clip-info">
+          <time>${new Date(c.created).toLocaleString()}</time>
+        </div>
+        <div class="clip-actions">
+          <a href="${API}${c.clip_url}" download="streamsnip.mp4" class="btn btn-ghost btn-sm" style="flex:1">⬇️</a>
+          <button class="btn btn-danger btn-sm" onclick="deleteClip('${c.id}', this)">🗑</button>
+        </div>
+      `;
+      grid.appendChild(item);
+    });
+  } catch {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon">⚠️</div><p>Cannot reach backend.</p></div>';
+  }
+}
+
+async function deleteClip(id, btn) {
+  btn.disabled = true; btn.textContent = '…';
+  await fetch(`${API}/api/clips/${id}`, { method: 'DELETE' });
+  await loadLibrary();
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function setProgress(pct, label, msg) {
+  document.getElementById('progressBar').style.width  = pct + '%';
+  document.getElementById('progressPct').textContent  = pct + '%';
+  document.getElementById('progressLabel').textContent = label || '';
+  document.getElementById('progressMsg').textContent  = msg  || '';
+}
+function showProgress(show) {
+  document.getElementById('progressWrap').classList.toggle('visible', show);
+}
+function resetBtn() {
+  const btn = document.getElementById('clipBtn');
+  btn.disabled = false; btn.textContent = '✂️ Create Clip';
+}
+function setError(msg) {
+  const el = document.getElementById('errorAlert');
+  el.textContent = '⚠️ ' + msg;
+  el.classList.remove('hidden');
+}
+function clearError() {
+  document.getElementById('errorAlert').classList.add('hidden');
+}
+function reset() {
+  clearError(); showProgress(false);
+  document.getElementById('resultCard').classList.remove('visible');
+  document.getElementById('infoBox').classList.add('hidden');
+  document.getElementById('urlInput').value = '';
+  document.getElementById('startInput').value = '0';
+  document.getElementById('endInput').value = '60';
+  resetBtn();
+  if (pollTimer) clearTimeout(pollTimer);
+}
+function formatTime(sec) {
+  if (!sec && sec !== 0) return '—';
+  sec = Math.round(sec);
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (h) return `${h}:${pad(m)}:${pad(s)}`;
+  return `${m}:${pad(s)}`;
+}
+function pad(n) { return String(n).padStart(2, '0'); }
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── URL input: auto-fetch on paste ────────────────────────────────────────
+document.getElementById('urlInput').addEventListener('paste', () => {
+  setTimeout(fetchInfo, 80);
+});
+</script>
+</body>
+</html>
